@@ -249,8 +249,7 @@ class User(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("users")
-        response = connection.post(uri, payload=self._config)
+        response = connection.post("/users", payload=self._config)
         return self
 
     def read(self, connection=None):
@@ -282,8 +281,8 @@ class User(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("users", self.name)
-        response = connection.put(uri, payload=self._config, etag=self.etag)
+        path = connection.resource_path("users", self.name)
+        response = connection.put(path, payload=self._config, etag=self.etag)
 
         self.name = self._config['user-name']
         if 'etag' in response.headers:
@@ -301,8 +300,8 @@ class User(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("users", self.name, properties=None)
-        response = connection.delete(uri, etag=self.etag)
+        path = connection.resource_path("users", self.name, properties=None)
+        response = connection.delete(path, etag=self.etag)
         return self
 
     @classmethod
@@ -314,8 +313,7 @@ class User(Model, PropertyLists):
         :return: A list of user names
         """
 
-        uri = connection.uri("users")
-        response = connection.get(uri)
+        response = connection.get("/users")
 
         results = []
         json_doc = json.loads(response.text)
@@ -334,8 +332,8 @@ class User(Model, PropertyLists):
         :param connection: The connection to the MarkLogic database
         :return: The user
         """
-        uri = connection.uri("users", name)
-        response = connection.get(uri)
+        path = connection.resource_path("users", name)
+        response = connection.get(path)
 
         if response.status_code == 200:
             result = User.unmarshal(json.loads(response.text))

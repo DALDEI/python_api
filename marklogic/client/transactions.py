@@ -140,13 +140,10 @@ class Transactions:
             if key in self._config:
                 fields.append(key + "=" + str(self._config[key]))
 
-        uri = connection.client_uri("transactions")
-
-        params = "?" + "&".join(fields)
-
-        response = connection.post(uri + params, payload=None, \
-                                       content_type="text/plain", \
-                                       accept="application/json")
+        response = connection.client_post("/transactions", payload=None, \
+                                          content_type="text/plain", \
+                                          accept="application/json",
+                                          parameters=fields)
 
         if response.status_code == 200:
             data = json.loads(response.text)
@@ -167,10 +164,8 @@ class Transactions:
             if key in self._config:
                 data[key] = self._config[key]
 
-        uri = connection.client_uri("transactions")
-        uri = uri + "/" + txid
-
-        response = connection.get(uri, accept=self._config['accept'])
+        response = connection.client_get("/transactions/" + txid,
+                                         accept=self._config['accept'])
         return response
 
     def commit(self, txid=None, connection=None):
@@ -227,10 +222,9 @@ class Transactions:
             if key in self._config:
                 data[key] = self._config[key]
 
-        uri = connection.client_uri("transactions")
-        uri = uri + "/" + txid + "?result=" + result
-
-        response = connection.post(uri, payload=data, \
-                                       accept=self._config['accept'])
+        response = connection.client_post("/transactions/" + txid,
+                                          payload=data, \
+                                          accept=self._config['accept'],
+                                          parameters=["result="+result])
 
         return response

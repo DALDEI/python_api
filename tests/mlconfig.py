@@ -1,6 +1,6 @@
 import json
 from marklogic.connection import Connection
-from requests.auth import HTTPDigestAuth
+from marklogic.auth import Auth
 from unittest import TestCase
 
 class MLConfig(TestCase):
@@ -8,14 +8,14 @@ class MLConfig(TestCase):
         super(MLConfig,self).__init__(*args, **kwargs)
 
         config = { "hostname": "localhost", \
-                       "username": "admin", \
-                       "password": "admin", \
-                       "protocol": "http", \
-                       "port": 8000, \
-                       "management-port": 8002, \
-                       "root": "manage", \
-                       "version": "v2", \
-                       "client-version": "v1" }
+                   "username": "admin", \
+                   "password": "admin", \
+                   "protocol": "http", \
+                   "port": 8000, \
+                   "management-port": 8002, \
+                   "root": "manage", \
+                   "version": "v2", \
+                   "client-version": "v1" }
         try:
             data_file = open("mlconfig.json").read()
             data = json.loads(data_file)
@@ -24,11 +24,7 @@ class MLConfig(TestCase):
         except FileNotFoundError:
             pass
 
-        self.auth = HTTPDigestAuth(config["username"], config["password"])
+        self.auth = Auth(config["username"], config["password"])
         self.connection = Connection(config["hostname"], self.auth, \
-                                         protocol=config["protocol"], \
-                                         port=config["port"], \
-                                         management_port=config["management-port"], \
-                                         root=config["root"], \
-                                         version=config["version"], \
-                                         client_version=config["client-version"])
+                                     client_port=config["port"], \
+                                     mgmt_port=config["management-port"])

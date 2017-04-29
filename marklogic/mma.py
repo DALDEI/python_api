@@ -6,11 +6,9 @@ import os
 import re
 import shlex
 import sys
-from requests.auth import HTTPDigestAuth
-from requests.auth import HTTPBasicAuth
+from marklogic.auth import Auth
 from marklogic.connection import Connection
 from marklogic.cli.template import Template
-
 
 class MMA():
     """The main MMA object."""
@@ -154,15 +152,9 @@ class MMA():
             except IndexError:
                 mgmt_port = 8002
 
-            if args['https']:
-                self.connection = Connection(host,
-                                             HTTPBasicAuth(username, password),
-                                             protocol="https",
-                                             management_port=mgmt_port)
-            else:
-                self.connection = Connection(host,
-                                             HTTPDigestAuth(username, password),
-                                             management_port=mgmt_port)
+            auth = Auth(username, password)
+
+            self.connection = Connection(host, auth, mgmt_port=mgmt_port)
 
         # do it!
         if command == 'run':

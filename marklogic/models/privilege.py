@@ -185,12 +185,10 @@ class Privilege(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("privileges")
-
         post_config = self._config
         post_config['kind'] = self.kind()
 
-        response = connection.post(uri, payload=post_config)
+        response = connection.post("/privileges", payload=post_config)
         return self
 
     def read(self, connection=None):
@@ -222,10 +220,10 @@ class Privilege(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("privileges", self.name,
-                             parameters=["kind="+self.kind()])
+        path = connection.resource_path("privileges", self.name)
 
-        response = connection.put(uri, payload=self._config, etag=self.etag)
+        response = connection.put(path, payload=self._config, etag=self.etag,
+                                  parameters=["kind="+self.kind()])
 
         self.name = self._config['privilege-name']
         if 'etag' in response.headers:
@@ -243,10 +241,9 @@ class Privilege(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("privileges", self.name, properties=None,
-                             parameters=["kind="+self.kind()])
-
-        response = connection.delete(uri, etag=self.etag)
+        path = connection.resource_path("privileges", self.name, properties=None)
+        response = connection.delete(path, etag=self.etag,
+                                     parameters=["kind="+self.kind()])
         return self
 
     @classmethod
@@ -262,8 +259,7 @@ class Privilege(Model, PropertyLists):
         :return: A list of Privilege names.
         """
 
-        uri = connection.uri("privileges")
-        response = connection.get(uri)
+        response = connection.get("/privileges")
 
         if response.status_code != 200:
             raise UnexpectedManagementAPIResponse(response.text)
@@ -308,10 +304,8 @@ class Privilege(Model, PropertyLists):
         parameters = []
         if self.kind() is not None:
             parameters = ["kind=" + self.kind()]
-        uri = connection.uri("privileges", self.privilege_name(),
-                             parameters=parameters)
-
-        response = connection.head(uri)
+        path = connection.resource_path("privileges", self.privilege_name())
+        response = connection.head(path, parameters=parameters)
 
         if response.status_code == 200:
             return True
@@ -369,8 +363,8 @@ class Privilege(Model, PropertyLists):
         if name is None:
             return cls._lookup_action(connection, action, kind)
         else:
-            uri = connection.uri("privileges", name, parameters=["kind="+kind])
-            response = connection.get(uri)
+            path = connection.resource_path("privileges", name)
+            response = connection.get(path, parameters=["kind="+kind])
             if response.status_code == 200:
                 result = Privilege.unmarshal(json.loads(response.text))
                 if 'etag' in response.headers:

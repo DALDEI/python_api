@@ -286,17 +286,19 @@ class Template(Model):
         if connection == None:
             connection = self.connection
 
-        uri = connection.uri("certificate-templates")
         struct = self.marshal()
-        response = connection.post(uri, payload=struct)
+        response = connection.post("/certificate-templates", payload=struct)
+
+        # FIXME: how does this work under the new connection scheme?
 
         # All well and good, but we need to know what ID was assigned
-        uri = "{0}://{1}:{2}{3}/properties" \
-          .format(connection.protocol, connection.host,
-                  connection.management_port,
-                  response.headers['location'])
+        # All well and good, but we need to know what ID was assigned
+        location = response.headers['location']
+        # we don't need the root and version on the path...
+        qpos = location.index("/certificate-templates/")
+        location = location[qpos:]
 
-        response = connection.get(uri)
+        response = connection.get(location + "/properties")
 
         if response.status_code == 200:
             result = Template.unmarshal(json.loads(response.text))
@@ -339,13 +341,12 @@ class Template(Model):
         if connection == None:
             connection = self.connection
 
-        uri = connection.uri("certificate-templates", self.template_id())
-
+        path = connection.resource_path("certificate-templates", self.template_id())
         struct = self.marshal()
         del struct['template-version']
         del struct['template-id']
 
-        response = connection.put(uri, payload=struct)
+        response = connection.put(path, payload=struct)
         return self
 
     def delete(self, connection=None):
@@ -359,10 +360,9 @@ class Template(Model):
         if connection == None:
             connection = self.connection
 
-        uri = connection.uri("certificate-templates", self.template_id(),
-                             properties=None)
-
-        response = connection.delete(uri, etag=self.etag)
+        path = connection.resource_path("certificate-templates", self.template_id(),
+                                        properties=None)
+        response = connection.delete(path, etag=self.etag)
         return self
 
     # ============================================================
@@ -383,10 +383,9 @@ class Template(Model):
             'valid-for': assert_type(valid_for, int)
             }
 
-        uri = connection.uri("certificate-templates", self.template_id(),
-                             properties=None)
-
-        response = connection.post(uri, payload=struct)
+        path = connection.resource_path("certificate-templates", self.template_id(),
+                                        properties=None)
+        response = connection.post(path, payload=struct)
 
         if response.status_code != 201:
             raise UnexpectedManagementAPIResponse(response.text)
@@ -424,9 +423,9 @@ class Template(Model):
             'if-necessary': 'true' if if_necessary else 'false'
             }
 
-        uri = connection.uri("certificate-templates", self.template_id(),
-                             properties=None)
-        response = connection.post(uri, payload=struct)
+        path = connection.resource_path("certificate-templates", self.template_id(),
+                                        properties=None)
+        response = connection.post(path, payload=struct)
 
         if response.status_code != 201:
             raise UnexpectedManagementAPIResponse(response.text)
@@ -455,12 +454,12 @@ class Template(Model):
         if dns_name is not None:
             struct['dns-name'] = dns_name
 
-        if ip-addr is not None:
+        if ip_addr is not None:
             struct['ip-addr'] = ip_addr
 
-        uri = connection.uri("certificate-templates", self.template_id(),
-                             properties=None)
-        response = connection.post(uri, payload=struct)
+        path = connection.resource_path("certificate-templates", self.template_id(),
+                                        properties=None)
+        response = connection.post(path, payload=struct)
 
         if response.status_code == 200:
             return json.loads(response.text)
@@ -480,10 +479,9 @@ class Template(Model):
             'operation': 'get-certificates-for-template',
             }
 
-        uri = connection.uri("certificate-templates", self.template_id(),
-                             properties=None)
-
-        response = connection.post(uri, payload=struct)
+        path = connection.resource_path("certificate-templates", self.template_id(),
+                                        properties=None)
+        response = connection.post(path, payload=struct)
 
         if response.status_code == 200:
             return json.loads(response.text)
@@ -527,9 +525,7 @@ class Template(Model):
         :return: A list of certificate template IDs.
         """
 
-        uri = connection.uri("certificate-templates")
-        response = connection.get(uri)
-
+        response = connection.get("/certificate-templates")
         if response.status_code != 200:
             raise UnexpectedManagementAPIResponse(response.text)
 
@@ -553,8 +549,8 @@ class Template(Model):
 
         :return: The Template object
         """
-        uri = connection.uri("certificate-templates", tempid)
-        response = connection.get(uri)
+        path = connection.resource_path("certificate-templates", tempid)
+        response = connection.get(path)
 
         if response.status_code == 200:
             result = Template.unmarshal(json.loads(response.text))

@@ -135,9 +135,8 @@ class Eval:
         if 'vars' in self._config:
             data['vars'] = json.dumps(self._config['vars'])
 
-        uri = connection.client_uri("eval")
-        response = connection.post(uri, payload=data, \
-                                       content_type="application/x-www-form-urlencoded", \
-                                       accept="multipart/mixed")
+        response = connection.client_post("/eval", payload=data, \
+                                          content_type="application/x-www-form-urlencoded", \
+                                          accept="multipart/mixed")
         return response
 

@@ -3053,8 +3053,8 @@ class Database(Model,PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("databases", self.name, properties=None)
-        response = connection.post(uri, payload=payload)
+        path = connection.resource_path("databases", self.name, properties="")
+        response = connection.post(path, payload=payload)
         data = json.loads(response.text)
         return data
 
@@ -3065,9 +3065,8 @@ class Database(Model,PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("databases", self.name, properties=None,
-                             parameters=["view="+view])
-        response = connection.get(uri)
+        path = connection.resource_path("databases", self.name)
+        response = connection.get(path, parameters=["view="+view])
         data = json.loads(response.text)
         return data
 
@@ -3115,8 +3114,6 @@ class Database(Model,PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("databases")
-
         forest_names = []
         if 'forest' in self._config:
             for forest_info in self._config['forest']:
@@ -3133,9 +3130,9 @@ class Database(Model,PropertyLists):
         self._config['forest'] = forest_names
         struct = self.marshal()
 
-        self.logger.debug("Creating database: {0}".format(self.database_name()))
+        self.logger.debug("Creating database: %s", self.database_name())
 
-        response = connection.post(uri, payload=struct)
+        response = connection.post("/databases", payload=struct)
         return self
 
     def read(self, connection=None):
@@ -3169,10 +3166,9 @@ class Database(Model,PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri('databases', self.name)
-
         struct = self.marshal()
-        response = connection.put(uri, payload=struct, etag=self.etag)
+        path = connection.resource_path("databases", self.name, properties="")
+        response = connection.put(path, payload=struct, etag=self.etag)
 
         # In case we renamed it
         self.name = self._config['database-name']
@@ -3189,9 +3185,8 @@ class Database(Model,PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("databases", self.name, properties=None,
-                             parameters=["forest-delete="+forest_delete])
-        response = connection.delete(uri)
+        path = connection.resource_path("databases", self.name, properties="")
+        response = connection.delete(path, parameters=["forest-delete="+forest_delete])
         return self
 
     def load_file(self, path, uri, collections=None,
@@ -3288,10 +3283,9 @@ class Database(Model,PropertyLists):
         """
         logger = logging.getLogger("marklogic")
 
-        uri = connection.uri("databases", name)
-
-        logger.debug("Reading database configuration: {0}".format(name))
-        response = connection.get(uri)
+        logger.debug("Reading database configuration: %s", name)
+        path = connection.resource_path("databases", name)
+        response = connection.get(path)
 
         result = None
         if response.status_code == 200:
@@ -3303,8 +3297,7 @@ class Database(Model,PropertyLists):
 
     @classmethod
     def list(cls, connection):
-        uri = connection.uri("databases")
-        response = connection.get(uri)
+        response = connection.get("/databases")
 
         if response.status_code == 200:
             response_json = json.loads(response.text)

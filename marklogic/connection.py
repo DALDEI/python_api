@@ -21,22 +21,23 @@
 
 import json
 import logging
-import requests
 import time
 from http.client import BadStatusLine
-from marklogic.exceptions import UnexpectedManagementAPIResponse
-from marklogic.exceptions import UnauthorizedAPIRequest
 from requests.auth import HTTPDigestAuth
 from requests.exceptions import ConnectionError
 from requests.exceptions import ReadTimeout
 from requests.packages.urllib3.exceptions import ProtocolError
 from requests.packages.urllib3.exceptions import ReadTimeoutError
 from requests.packages import urllib3
+import requests
+from marklogic.exceptions import UnexpectedManagementAPIResponse
+from marklogic.exceptions import UnauthorizedAPIRequest
+from marklogic.exceptions import UnsupportedOperation
+from marklogic.endpoint import Endpoint
 
 """
 Connection related classes and method to connect to MarkLogic.
 """
-
 
 class Connection:
     """
@@ -44,189 +45,113 @@ class Connection:
     a MarkLogic server.
     """
     def __init__(self, host, auth,
-                 protocol="http", port=8000, management_port=8002,
-                 root="manage", version="v2", client_version="v1"):
+                 mgmt_port=8002, mgmt_root="/manage/v2",
+                 client_port=8000, client_root="/v1"):
         self.host = host
         self.auth = auth
-        self.protocol = protocol
-        self.port = port
-        self.management_port = management_port
-        self.root = root
-        self.version = version
-        self.client_version = client_version
+
+        self.mgmt = Endpoint(host, mgmt_port, auth, mgmt_root)
+        self.client = Endpoint(host, client_port, auth, client_root)
+        self.admin = Endpoint(host, 8001, auth, "/admin/v1")
+        self.response = None
+        self.verify = False
+
         self.logger = logging.getLogger("marklogic.connection")
         self.payload_logger = logging.getLogger("marklogic.connection.payloads")
 
-        self.verify = False # Danger, Will Robinson!
-        urllib3.disable_warnings()
+    def resource_path(self, kind, name, properties="/properties"):
+        if properties is None:
+            properties = ""
+        if kind is None:
+            kind = ""
+        if kind != "":
+            kind = kind + "/"
+        return "{0}{1}{2}".format(kind, name, properties)
 
-    # You'd expect parameters to be a dictionary, but then it couldn't
-    # have repeated keys, so it's an array.
-    def uri(self, relation, name=None,
-            protocol=None, host=None, port=None, root=None, version=None,
-            properties="/properties", parameters=None):
-        if protocol is None:
-            protocol = self.protocol
-        if host is None:
-            host = self.host
-        if port is None:
-            port = self.management_port
-        if root is None:
-            root = self.root
-        if version is None:
-            version = self.version
-
-        if name is None:
-            name = ""
-        else:
-            name = "/" + name
-            if properties is not None:
-                name = name + properties
-
-        uri = "{0}://{1}:{2}/{3}/{4}/{5}{6}" \
-              .format(protocol, host, port, root, version, relation, name)
-
-        if parameters is not None:
-            uri = uri + "?" + "&".join(parameters)
-
-        return uri
-
-    def client_uri(self, path, protocol=None, host=None, port=None, version=None):
-        if protocol is None:
-            protocol = self.protocol
-        if host is None:
-            host = self.host
-        if port is None:
-            port = self.port
-        if version is None:
-            version = self.client_version
-
-        uri = "{0}://{1}:{2}/{3}/{4}" \
-              .format(protocol, host, port, version, path)
-
-        return uri
-
-    def head(self, uri, accept="application/json"):
-        self.logger.debug("HEAD {0}...".format(uri))
-        self.response = requests.head(uri, auth=self.auth, verify=self.verify)
+    def head(self, path):
+        self.response = self.mgmt.head(path)
         return self._response()
 
-    def get(self, uri, accept="application/json", headers=None):
-        if headers is None:
-            headers = {'accept': accept}
-        else:
-            headers['accept'] = accept
+    def client_head(self, path):
+        self.response = self.client.head(path)
+        return self._client_response()
 
-        self.logger.debug("GET  {0}...".format(uri))
-        self.payload_logger.debug("Headers:")
-        self.payload_logger.debug(json.dumps(headers, indent=2))
-
-        self.response = requests.get(uri, auth=self.auth, headers=headers,
-                                     verify=self.verify)
+    def get(self, path,
+            accept="application/json", headers=None, parameters=None):
+        self.response = self.mgmt.get(path, accept=accept,
+                                      headers=headers, parameters=parameters)
         return self._response()
 
-    def post(self, uri, payload=None, etag=None, headers=None,
+    def client_get(self, path, accept="application/json", headers=None, parameters=None):
+        self.response = self.client.get(path, accept=accept,
+                                        headers=headers, parameters=parameters)
+        return self._client_response()
+
+    def admin_get(self, path, accept="application/json", headers=None, parameters=None):
+        self.response = self.admin.get(path, accept=accept,
+                                       headers=headers, parameters=parameters)
+        return self._client_response()
+
+    def post(self, path, payload=None, etag=None, headers=None, parameters=None,
              content_type="application/json", accept="application/json"):
-
-        if headers is None:
-            headers = {}
-
-        headers['content-type'] = content_type
-        headers['accept'] = accept
-
-        if etag is not None:
-            headers['if-match'] = etag
-
-        self.logger.debug("POST {0}...".format(uri))
-        self.payload_logger.debug("Headers:")
-        self.payload_logger.debug(json.dumps(headers, indent=2))
-        if payload is not None:
-            self.payload_logger.debug("Payload:")
-            if content_type == 'application/json':
-                self.payload_logger.debug(json.dumps(payload, indent=2))
-            else:
-                self.payload_logger.debug(payload)
-
-        if payload is None:
-            self.response = requests.post(uri, auth=self.auth, headers=headers,
-                                          verify=self.verify)
-        else:
-            if content_type == "application/json":
-                self.response = requests.post(uri, json=payload,
-                                              auth=self.auth, headers=headers,
-                                              verify=self.verify)
-            else:
-                self.response = requests.post(uri, data=payload,
-                                              auth=self.auth, headers=headers,
-                                              verify=self.verify)
-
+        self.response = self.mgmt.post(path, payload=payload, etag=etag,
+                                       headers=headers, parameters=parameters,
+                                       content_type=content_type, accept=accept)
         return self._response()
 
-    def put(self, uri, payload=None, etag=None,
-            content_type="application/json", accept="application/json"):
+    def client_post(self, path, payload=None, etag=None, headers=None, parameters=None,
+                    content_type="application/json", accept="application/json"):
+        self.response = self.client.post(path, payload=payload, etag=etag,
+                                         headers=headers, parameters=parameters,
+                                         content_type=content_type, accept=accept)
+        return self._client_response()
 
-        headers = {'content-type': content_type,
-                   'accept': accept}
-        if etag is not None:
-            headers['if-match'] = etag
+    def admin_post(self, path, payload=None, etag=None, headers=None, parameters=None,
+                    content_type="application/json", accept="application/json"):
+        self.response = self.admin.post(path, payload=payload, etag=etag,
+                                        headers=headers, parameters=parameters,
+                                        content_type=content_type, accept=accept)
+        return self._client_response()
 
-        self.logger.debug("PUT  {0}...".format(uri))
-        self.payload_logger.debug("Headers:")
-        self.payload_logger.debug(json.dumps(headers, indent=2))
-        if payload is not None:
-            self.payload_logger.debug("Payload:")
-            if content_type == 'application/json':
-                self.payload_logger.debug(json.dumps(payload, indent=2))
-            else:
-                self.payload_logger.debug(payload)
-
-        if payload is None:
-            self.response = requests.put(uri, auth=self.auth, headers=headers,
-                                         verify=self.verify)
-        else:
-            if content_type == "application/json":
-                self.response = requests.put(uri, json=payload,
-                                             auth=self.auth, headers=headers,
-                                             verify=self.verify)
-            else:
-                self.response = requests.put(uri, data=payload,
-                                             auth=self.auth, headers=headers,
-                                             verify=self.verify)
-
+    def put(self, path, payload=None, etag=None, headers=None, parameters=None,
+             content_type="application/json", accept="application/json"):
+        self.response = self.mgmt.put(path, payload=payload, etag=etag,
+                                      headers=headers, parameters=parameters,
+                                      content_type=content_type, accept=accept)
         return self._response()
 
-    def delete(self, uri, payload=None, etag=None,
+    def client_put(self, path, payload=None, etag=None, headers=None, parameters=None,
+                    content_type="application/json", accept="application/json"):
+        self.response = self.client.put(path, payload=payload, etag=etag,
+                                        headers=headers, parameters=parameters,
+                                        content_type=content_type, accept=accept)
+        return self._client_response()
+
+    def delete(self, path, payload=None, etag=None, headers=None, parameters=None,
                content_type="application/json", accept="application/json"):
-
-        headers = {'content-type': content_type,
-                   'accept': accept}
-        if etag is not None:
-            headers['if-match'] = etag
-
-        self.logger.debug("DELETE {0}...".format(uri))
-        self.payload_logger.debug("Headers:")
-        self.payload_logger.debug(json.dumps(headers, indent=2))
-        if payload is not None:
-            self.payload_logger.debug("Payload:")
-            if content_type == 'application/json':
-                self.payload_logger.debug(json.dumps(payload, indent=2))
-            else:
-                self.payload_logger.debug(payload)
-
-        if payload is None:
-            self.response = requests.delete(uri, auth=self.auth, headers=headers,
-                                            verify=self.verify)
-        else:
-            self.response = requests.delete(uri, json=payload,
-                                            auth=self.auth, headers=headers,
-                                            verify=self.verify)
-
+        self.response = self.mgmt.delete(path, payload=payload, etag=etag,
+                                         headers=headers, parameters=parameters,
+                                         content_type=content_type, accept=accept)
         return self._response()
 
-    def _response(self):
+    def client_delete(self, path, payload=None, etag=None, headers=None, parameters=None,
+                      content_type="application/json", accept="application/json"):
+        self.response = self.client.delete(path, payload=payload, etag=etag,
+                                           headers=headers, parameters=parameters,
+                                           content_type=content_type, accept=accept)
+        return self._client_response()
+
+    def admin_delete(self, path, payload=None, etag=None, headers=None, parameters=None,
+                      content_type="application/json", accept="application/json"):
+        self.response = self.admin.delete(path, payload=payload, etag=etag,
+                                           headers=headers, parameters=parameters,
+                                           content_type=content_type, accept=accept)
+        return self._client_response()
+
+    def _client_response(self):
         response = self.response
 
-        self.logger.debug("Status code: {0}".format(response.status_code))
+        self.logger.debug("Status code: %d", response.status_code)
         self.payload_logger.debug(response.text)
 
         if response.status_code < 300:
@@ -237,6 +162,11 @@ class Connection:
             raise UnauthorizedAPIRequest(response.text)
         else:
             raise UnexpectedManagementAPIResponse(response.text)
+
+        return response
+
+    def _response(self):
+        response = self._client_response()
 
         if response.status_code == 202:
             data = json.loads(response.text)
@@ -253,48 +183,36 @@ class Connection:
         restart message
         """
 
-        uri = "{0}://{1}:8001{2}".format(self.protocol, self.host,
-                                         timestamp_uri)
-
         done = False
         count = 24
         while not done:
             try:
-                self.logger.debug("Waiting for restart of {0}"
-                                  .format(self.host))
-                response = requests.get(uri, auth=self.auth,
-                                        headers={'accept': 'application/json'},
-                                        verify=self.verify)
+                self.logger.debug("Waiting for restart of %s", self.host)
+                response = self.admin_get("/timestamp",
+                                          headers={'accept': 'application/json'})
                 done = (response.status_code == 200
                         and response.text != last_startup)
             except TypeError:
-                self.logger.debug("{0}: {1}".format(response.status_code,
-                                                    response.text))
-                pass
+                self.logger.debug("Type error...")
             except BadStatusLine:
-                self.logger.debug("{0}: {1}".format(response.status_code,
-                                                    response.text))
-                pass
+                self.logger.debug("Bad status line...")
             except ProtocolError:
-                self.logger.debug("{0}: {1}".format(response.status_code,
-                                                    response.text))
-                pass
+                self.logger.debug("Protocol error...")
             except ReadTimeoutError:
                 self.logger.debug("ReadTimeoutError error...")
-                pass
             except ReadTimeout:
                 self.logger.debug("ReadTimeout error...")
-                pass
             except ConnectionError:
                 self.logger.debug("Connection error...")
-                pass
+            except UnexpectedManagementAPIResponse:
+                self.logger.debug("Unexpected response...")
             time.sleep(4)  # Sleep one more time even after success...
             count -= 1
 
             if count <= 0:
                 raise UnexpectedManagementAPIResponse("Restart hung?")
 
-        self.logger.debug("{0} restarted".format(self.host))
+        self.logger.debug("%s restarted", self.host)
 
     @classmethod
     def make_connection(cls, host, username, password):

@@ -262,8 +262,7 @@ class Role(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("roles")
-        response = connection.post(uri, payload=self._config)
+        response = connection.post("/roles", payload=self._config)
         return self
 
     def read(self, connection=None):
@@ -295,8 +294,8 @@ class Role(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("roles", self.name)
-        response = connection.put(uri, payload=self._config, etag=self.etag)
+        path = connection.resource_path("roles", self.name)
+        response = connection.put(path, payload=self._config, etag=self.etag)
 
         self.name = self._config['role-name']
         if 'etag' in response.headers:
@@ -313,8 +312,8 @@ class Role(Model, PropertyLists):
         """
         if connection is None:
             connection = self.connection
-        uri = connection.uri("roles", self.name, properties=None)
-        response = connection.delete(uri)
+        path = connection.resource_path("roles", self.name, properties=None)
+        response = connection.delete(path)
         return self
 
     @classmethod
@@ -326,8 +325,7 @@ class Role(Model, PropertyLists):
         :return: A list of Roles
         """
 
-        uri = connection.uri("roles")
-        response = connection.get(uri)
+        response = connection.get("/roles")
 
         if response.status_code != 200:
             raise UnexpectedManagementAPIResponse(response.text)
@@ -362,8 +360,8 @@ class Role(Model, PropertyLists):
         :param name: The name of the role
         :return: The role
         """
-        uri = connection.uri("roles", name)
-        response = connection.get(uri)
+        path = connection.resource_path("roles", name)
+        response = connection.get(path)
 
         if response.status_code == 200:
             result = Role.unmarshal(json.loads(response.text))

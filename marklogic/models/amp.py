@@ -144,13 +144,11 @@ class Amp(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("amps")
-
         struct = self.marshal()
 
         self.logger.debug("Creating {0} amp".format(self.local_name()))
 
-        response = connection.post(uri, payload=struct)
+        response = connection.post("/amps", payload=struct)
 
         if response.status_code != 201:
             raise UnexpectedManagementAPIResponse(response.text)
@@ -191,11 +189,10 @@ class Amp(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("amps", self.local_name(),
-                             parameters=self._params())
-
+        path = connection.resource_path("amps", self.local_name())
         struct = self.marshal()
-        response = connection.put(uri, payload=struct, etag=self.etag)
+        response = connection.put(path, payload=struct, etag=self.etag,
+                                  parameters=self._params())
         if response.status_code != 204:
             raise UnexpectedManagementAPIResponse(response.text)
 
@@ -215,10 +212,8 @@ class Amp(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("amps", self.local_name(), properties=None,
-                             parameters=self._params())
-
-        response = connection.delete(uri)
+        path = connection.resource_path("amps", self.local_name(), properties=None)
+        response = connection.delete(path, parameters=self._params())
         if response.status_code != 204:
             raise UnexpectedManagementAPIResponse(response.text)
 
@@ -256,8 +251,8 @@ class Amp(Model, PropertyLists):
         if modules_database is not None:
             params.append("modules-database="+modules_database)
 
-        uri = connection.uri("amps", local_name, parameters=params)
-        response = connection.get(uri)
+        path = connection.resource_path("amps", local_name)
+        response = connection.get(path, parameters=params)
         if response.status_code == 200:
             result = Amp.unmarshal(json.loads(response.text))
             if 'etag' in response.headers:
@@ -275,8 +270,7 @@ class Amp(Model, PropertyLists):
         :return: A list of amps.
         """
 
-        uri = connection.uri("amps")
-        response = connection.get(uri)
+        response = connection.get("/amps")
 
         # This one isn't like all the others because they're compound
         # Should return the IDs but the Management API doesn't (yet) allow

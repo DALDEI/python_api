@@ -98,8 +98,8 @@ class DatabaseBackup:
         if incremental:
             payload['incremental-dir'] = assert_type(incremental_dir, str)
 
-        uri = connection.uri("databases", database_name, properties=None)
-        response = connection.post(uri, payload=payload)
+        path = connection.resource_path("databases", database_name, properties=None)
+        response = connection.post(path, payload=payload)
 
         result = json.loads(response.text)
         host_name = None
@@ -144,8 +144,8 @@ class DatabaseBackup:
         if self.host_name is not None:
             payload['host-name'] = self.host_name
 
-        uri = connection.uri("databases", self.database_name, properties=None)
-        response = connection.post(uri, payload=payload)
+        path = connection.resource_path("databases", self.database_name, properties=None)
+        response = connection.post(path, payload=payload)
 
         return json.loads(response.text)
 
@@ -161,8 +161,8 @@ class DatabaseBackup:
             'job-id': self.job_id
             }
 
-        uri = connection.uri("databases", self.database_name, properties=None)
-        response = connection.post(uri, payload=payload)
+        path = connection.resource_path("databases", self.database_name, properties=None)
+        response = connection.post(path, payload=payload)
 
         return json.loads(response.text)
 
@@ -179,8 +179,8 @@ class DatabaseBackup:
         for key in self.settings:
             payload[key] = self.settings[key]
 
-        uri = connection.uri("databases", self.database_name, properties=None)
-        response = connection.post(uri, payload=payload)
+        path = connection.resource_path("databases", self.database_name, properties=None)
+        response = connection.post(path, payload=payload)
 
         return json.loads(response.text)
 
@@ -200,8 +200,8 @@ class DatabaseBackup:
             'keep-num-backups': assert_type(keep_num, int)
             }
 
-        uri = connection.uri("databases", self.database_name, properties=None)
-        response = connection.post(uri, payload=payload)
+        path = connection.resource_path("databases", self.database_name, properties=None)
+        response = connection.post(path, payload=payload)
 
         return json.loads(response.text)
 
@@ -247,8 +247,8 @@ class DatabaseRestore:
         if incremental:
             payload['incremental-dir'] = assert_type(incremental_dir, str)
 
-        uri = connection.uri("databases", database_name, properties=None)
-        response = connection.post(uri, payload=payload)
+        path = connection.resource_path("databases", database_name, properties=None)
+        response = connection.post(path, payload=payload)
 
         result = json.loads(response.text)
         host_name = None
@@ -292,8 +292,8 @@ class DatabaseRestore:
         if self.host_name is not None:
             payload['host-name'] = self.host_name
 
-        uri = connection.uri("databases", self.database_name, properties=None)
-        response = connection.post(uri, payload=payload)
+        path = connection.resource_path("databases", self.database_name, properties=None)
+        response = connection.post(path, payload=payload)
 
         return json.loads(response.text)
 
@@ -309,8 +309,8 @@ class DatabaseRestore:
             'job-id': self.job_id
             }
 
-        uri = connection.uri("databases", self.database_name, properties=None)
-        response = connection.post(uri, payload=payload)
+        path = connection.resource_path("databases", self.database_name, properties=None)
+        response = connection.post(path, payload=payload)
 
         return json.loads(response.text)
 
@@ -327,7 +327,7 @@ class DatabaseRestore:
         for key in self.settings:
             payload[key] = self.settings[key]
 
-        uri = connection.uri("databases", self.database_name, properties=None)
-        response = connection.post(uri, payload=payload)
+        path = connection.resource_path("databases", self.database_name, properties=None)
+        response = connection.post(path, payload=payload)
 
         return json.loads(response.text)

@@ -123,17 +123,16 @@ class Authority(Model):
 
         :return: The Authority object
         """
-        uri = connection.uri("certificate-authorities")
-        response = connection.post(uri, payload=pem,
+        response = connection.post("/certificate-authorities", payload=pem,
                                    content_type="text/plain")
 
         # All well and good, but we need to know what ID was assigned
-        uri = "{0}://{1}:{2}{3}/properties" \
-          .format(connection.protocol, connection.host,
-                  connection.management_port,
-                  response.headers['location'])
+        location = response.headers['location']
+        # we don't need the root and version on the path...
+        qpos = location.index("/certificate-authorities/")
+        location = location[qpos:]
 
-        response = connection.get(uri)
+        response = connection.get(location + "/properties")
 
         if response.status_code == 200:
             result = Authority.unmarshal(json.loads(response.text))
@@ -177,10 +176,9 @@ class Authority(Model):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("certificate-authorities", self.id,
-                             properties=None)
-
-        response = connection.delete(uri)
+        path = connection.resource_path("certificate-authorities", self.id,
+                                        properties=None)
+        response = connection.delete(path)
         return self
 
     @classmethod
@@ -198,8 +196,7 @@ class Authority(Model):
         :return: A list of certificate authority IDs.
         """
 
-        uri = connection.uri("certificate-authorities")
-        response = connection.get(uri)
+        response = connection.get("/certificate-authorities")
 
         if response.status_code != 200:
             raise UnexpectedManagementAPIResponse(response.text)
@@ -224,8 +221,8 @@ class Authority(Model):
 
         :return: The Authority object
         """
-        uri = connection.uri("certificate-authorities", certid)
-        response = connection.get(uri)
+        path = connection.resource_path("certificate-authorities", certid)
+        response = connection.get(path)
 
         if response.status_code == 200:
             result = Authority.unmarshal(json.loads(response.text))

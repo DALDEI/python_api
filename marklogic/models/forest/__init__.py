@@ -275,9 +275,8 @@ class Forest(Model,PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("forests")
         struct = self.marshal()
-        response = connection.post(uri, payload=struct)
+        response = connection.post("/forests", payload=struct)
         return self
 
     def read(self, connection=None):
@@ -308,9 +307,9 @@ class Forest(Model,PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("forests", self.name)
+        path = connection.resource_path("forests", self.name)
         struct = self.marshal()
-        response = connection.put(uri, payload=struct, etag=self.etag)
+        response = connection.put(path, payload=struct, etag=self.etag)
 
         # In case we renamed it
         self.name = self._config['forest-name']
@@ -326,11 +325,10 @@ class Forest(Model,PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("forests", self.name, properties=None,
-                             parameters=["level="+level,
-                                         "replicas="+replicas])
-
-        response = connection.delete(uri)
+        path = connection.resource_path("forests", self.name, properties=None)
+        response = connection.delete(path,
+                                     parameters=["level="+level,
+                                                 "replicas="+replicas])
         return self
 
     @classmethod
@@ -342,8 +340,8 @@ class Forest(Model,PropertyLists):
         :param connection: The connection to a MarkLogic server
         :return: The Forest object
         """
-        uri = connection.uri("forests", name)
-        response = connection.get(uri)
+        path = connection.resource_path("forests", name)
+        response = connection.get(path)
 
         result = None
         if response.status_code == 200:
@@ -356,8 +354,8 @@ class Forest(Model,PropertyLists):
 
     @classmethod
     def list(cls, connection):
-        uri = connection.uri("forests")
-        response = connection.get(uri)
+        path = connection.resource_path("forests")
+        response = connection.get(path)
 
         if response.status_code == 200:
             response_json = json.loads(response.text)

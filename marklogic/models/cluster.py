@@ -70,9 +70,8 @@ class LocalCluster(Model):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("", properties=None,
-                             parameters=["view="+viewname])
-        response = connection.get(uri)
+        path = connection.resource_path("", "", properties=None)
+        response = connection.get(path, parameters=["view="+viewname])
 
         if response.status_code == 200:
             return json.loads(response.text)
@@ -90,10 +89,9 @@ class LocalCluster(Model):
         if connection is None:
             connection = self.connection
 
-        uri = "{0}://{1}:{2}/manage/v2/properties".format(
-            connection.protocol, connection.host, connection.management_port)
+        path = connection.resource_path("", "")
         struct = self.marshal()
-        response = connection.put(uri, payload=struct, etag=self.etag)
+        response = connection.put(path, payload=struct, etag=self.etag)
 
         # In case we renamed it
         self.name = self._config['cluster-name']
@@ -106,27 +104,24 @@ class LocalCluster(Model):
         if connection is None:
             connection = self.connection
 
-        uri = "{0}://{1}:{2}/manage/v2".format(
-            connection.protocol, connection.host, connection.management_port)
+        path = connection.resource_path("", "", properties=None)
         struct = {'operation': 'restart-local-cluster'}
-        response = connection.post(uri, payload=struct)
+        response = connection.post(path, payload=struct)
         return self
 
     def shutdown(self, connection=None):
         if connection is None:
             connection = self.connection
 
-        uri = "{0}://{1}:{2}/manage/v2".format(
-            connection.protocol, connection.host, connection.management_port)
+        path = connection.resource_path("", "", properties=None)
         struct = {'operation': 'shutdown-local-cluster'}
-        response = connection.post(uri, payload=struct)
+        response = connection.post(path, payload=struct)
         return None
 
     @classmethod
     def lookup(cls, connection):
-        uri = "{0}://{1}:{2}/manage/v2/properties".format(
-            connection.protocol, connection.host, connection.management_port)
-        response = connection.get(uri)
+        path = connection.resource_path("", "")
+        response = connection.get(path)
         if response.status_code == 200:
             result = LocalCluster.unmarshal(json.loads(response.text))
             if 'etag' in response.headers:
@@ -181,10 +176,8 @@ class LocalCluster(Model):
         if connection is None:
             connection = self.connection
 
-        uri = "{0}://{1}:8001/admin/v1/host-config?remote-host={2}" \
-              .format(connection.protocol, connection.host, host)
-
-        response = connection.delete(uri)
+        response = connection.admin_delete("/host-config",
+                                           parameters=["remote-host={0}".format(host)])
 
     def couple(self, other_cluster, connection=None,
                other_cluster_connection=None):
@@ -196,18 +189,13 @@ class LocalCluster(Model):
         self.read(connection)
         other_cluster.read(other_cluster_connection)
 
-        uri = "{0}://{1}:{2}/manage/v2/clusters".format(
-            connection.protocol, connection.host, connection.management_port)
+        path = connection.resource_path("clusters", "", properties=None)
         struct = other_cluster.marshal()
-        response = connection.post(uri, payload=struct)
+        response = connection.post(path, payload=struct)
 
-        uri = "{0}://{1}:{2}/manage/v2/clusters".format(
-            other_cluster_connection.protocol,
-            other_cluster_connection.host,
-            other_cluster_connection.management_port)
-
+        path = other_cluster_connection.resource_path("clusters", "", properties=None)
         struct = self.marshal()
-        response = other_cluster_connection.post(uri, payload=struct)
+        response = other_cluster_connection.post(path, payload=struct)
 
     def _post_server_config(self, xml, connection):
         """
@@ -220,13 +208,10 @@ class LocalCluster(Model):
         :param xml: The XML payload from get_server_config()
         :return: The cluster configuration as a ZIP file.
         """
-        uri = "{0}://{1}:8001/admin/v1/cluster-config".format(
-            connection.protocol, connection.host)
-
         struct = {'group': 'Default',
                   'server-config': xml}
 
-        response = connection.post(uri, payload=struct,
+        response = connection.admin_post("/cluster-config", payload=struct,
                                    content_type='application/x-www-form-urlencoded')
 
         if response.status_code != 200:
@@ -336,9 +321,8 @@ class ForeignCluster(Model):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("clusters", self.name)
         struct = self.marshal()
-        response = connection.put(uri, payload=struct, etag=self.etag)
+        response = connection.put("/clusters", payload=struct, etag=self.etag)
 
         # In case we renamed it
         self.name = self._config['foreign-cluster-name']
@@ -349,8 +333,7 @@ class ForeignCluster(Model):
 
     @classmethod
     def list(cls, connection):
-        uri = connection.uri("clusters")
-        response = connection.get(uri)
+        response = connection.get("/clusters")
 
         if response.status_code == 200:
             response_json = json.loads(response.text)
@@ -369,8 +352,8 @@ class ForeignCluster(Model):
 
     @classmethod
     def lookup(cls, connection, name):
-        uri = connection.uri("clusters", name)
-        response = connection.get(uri)
+        path = connection.resource_path("clusters", name)
+        response = connection.get(path)
 
         if response.status_code == 200:
             result = ForeignCluster.unmarshal(json.loads(response.text))

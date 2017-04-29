@@ -579,11 +579,8 @@ class Documents(PropertyLists):
         for pair in self.transparams:
             params.append("trans:{}={}".format(pair[0], pair[1]))
 
-        uri = connection.client_uri("documents")
-
-        uri = uri + "?" + "&".join(params)
-
-        response = connection.get(uri, accept=self._config['accept'])
+        response = connection.client_get("/documents", accept=self._config['accept'],
+                                         parameters=params)
         return response
 
     def put(self, data=None, uri=None, connection=None):
@@ -657,13 +654,10 @@ class Documents(PropertyLists):
         for pair in self.transparams:
             params.append("trans:{}={}".format(pair[0], pair[1]))
 
-        uri = connection.client_uri("documents")
-
-        uri = uri + "?" + "&".join(params)
-
-        response = connection.put(uri, payload=data, \
-                                      content_type=self._config['content-type'], \
-                                      accept=self._config['accept'])
+        response = connection.client_put("/documents", payload=data, \
+                                         content_type=self._config['content-type'], \
+                                         accept=self._config['accept'],
+                                         parameters=params)
         return response
 
     def _put_mixed(self, data, target, connection):
@@ -687,10 +681,6 @@ class Documents(PropertyLists):
         else:
             metact = self.metadata_content_type()
 
-        uri = connection.client_uri("documents")
-        if params:
-            uri = uri + "?" + "&".join(params)
-
         datact = self._config['content-type']
 
         fields = []
@@ -709,7 +699,8 @@ class Documents(PropertyLists):
         post_ct = ''.join(('multipart/mixed',) \
                               + content_type.partition(';')[1:])
 
-        response = connection.post(uri, payload=post_body, content_type=post_ct)
+        response = connection.client_post("/documents", payload=post_body,
+                                          content_type=post_ct, parameters=params)
 
         return response
 
@@ -738,10 +729,6 @@ class Documents(PropertyLists):
         for value in self._config['category']:
             params.append("category={}".format(value))
 
-        uri = connection.client_uri("documents")
-
-        uri = uri + "?" + "&".join(params)
-
-        response = connection.delete(uri)
+        response = connection.client_delete("/documents", parameters=params)
 
         return response

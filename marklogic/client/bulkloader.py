@@ -98,18 +98,15 @@ class BulkLoader(PropertyLists):
         for pair in self.transparams:
             params.append("trans:{}={}".format(pair[0], pair[1]))
 
-        uri = connection.client_uri("documents")
-        if params:
-            uri = uri + "?" + "&".join(params)
-
-        self.logger.debug("Bulk POST {}: {}".format(self.field_count, uri))
+        self.logger.debug("Bulk POST %d: /documents", self.field_count)
 
         post_body, content_type = encode_multipart_formdata(self.fields)
 
         post_ct = ''.join(('multipart/mixed',) \
                               + content_type.partition(';')[1:])
 
-        response = connection.post(uri, payload=post_body, content_type=post_ct)
+        response = connection.client_post("/documents", payload=post_body,
+                                          content_type=post_ct, parameters=params)
         self.clear_content()
         return response
 

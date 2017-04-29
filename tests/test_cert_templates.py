@@ -31,7 +31,7 @@ class TestCertRequest(MLConfig):
                       version=0)
         temp = Template("Test Template", "Test description", req)
 
-        assert "Test Template" == temp.template_name()
+        assert temp.template_name() == "Test Template"
 
         temp.create(self.connection)
 

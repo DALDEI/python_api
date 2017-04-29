@@ -227,9 +227,9 @@ class Group(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("groups")
+        path = connection.resource_path("groups")
         struct = self.marshal()
-        response = connection.post(uri, payload=struct)
+        response = connection.post(path, payload=struct)
         return self
 
     def read(self, connection=None):
@@ -261,9 +261,9 @@ class Group(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("groups", self.name)
+        path = connection.resource_path("groups", self.name)
         struct = self.marshal()
-        response = connection.put(uri, payload=struct, etag=self.etag)
+        response = connection.put(path, payload=struct, etag=self.etag)
 
         self.name = self._config['group-name']
         if 'etag' in response.headers:
@@ -281,8 +281,8 @@ class Group(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("groups", self.name, properties=None)
-        response = connection.delete(uri, etag=self.etag)
+        path = connection.resource_path("groups", self.name, properties=None)
+        response = connection.delete(path, etag=self.etag)
         return self
 
     @classmethod
@@ -294,8 +294,8 @@ class Group(Model, PropertyLists):
         :return: A list of group names
         """
 
-        uri = connection.uri("groups")
-        response = connection.get(uri)
+        path = connection.resource_path("groups")
+        response = connection.get(path)
 
         results = []
         json_doc = json.loads(response.text)
@@ -314,8 +314,8 @@ class Group(Model, PropertyLists):
         :param connection: The connection to the MarkLogic database
         :return: The group
         """
-        uri = connection.uri("groups", name)
-        response = connection.get(uri)
+        path = connection.resource_path("groups", name)
+        response = connection.get(path)
 
         if response.status_code == 200:
             result = Group.unmarshal(json.loads(response.text))

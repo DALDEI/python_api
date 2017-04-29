@@ -229,13 +229,11 @@ class Task(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("tasks", parameters=["group-id="+group])
-
         struct = self.marshal()
 
-        self.logger.debug("Creating {0} task".format(self.type()))
+        self.logger.debug("Creating %s task", self.type())
 
-        response = connection.post(uri, payload=struct)
+        response = connection.post("/tasks", payload=struct, parameters=["group-id="+group])
 
         if response.status_code != 201:
             raise UnexpectedManagementAPIResponse(response.text)
@@ -248,11 +246,11 @@ class Task(Model, PropertyLists):
         qpos = location.index("?")
         location = location[0:qpos]
 
-        uri = "{0}://{1}:{2}{3}/properties?group-id={4}" \
-              .format(connection.protocol, connection.host,
-                      connection.management_port, location, group)
+        # And we don't need the root and version on the path...
+        qpos = location.index("/tasks/")
+        location = location[qpos:]
 
-        response = connection.get(uri)
+        response = connection.get(location + "/properties", parameters=["group-id="+group])
 
         if response.status_code == 200:
             result = Task.unmarshal(json.loads(response.text))
@@ -294,10 +292,10 @@ class Task(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("tasks", self.taskid,
-                             parameters=["group-id="+self.group])
+        path = connection.resource_path("tasks", self.taskid)
         struct = self.marshal()
-        response = connection.put(uri, payload=struct, etag=self.etag)
+        response = connection.put(path, payload=struct, etag=self.etag,
+                                  parameters=["group-id="+self.group])
         if response.status_code != 204:
             raise UnexpectedManagementAPIResponse(response.text)
 
@@ -317,9 +315,9 @@ class Task(Model, PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("tasks", self.taskid, properties=None,
-                             parameters=["group-id="+group])
-        response = connection.delete(uri)
+        path = connection.resource_path("tasks", self.taskid, properties=None)
+        response = connection.delete(path, parameters=["group-id="+group])
+
         return self
 
     def exists(self, connection=None):
@@ -344,8 +342,8 @@ class Task(Model, PropertyLists):
         :param taskid: The ID of the task
         :return: The task information
         """
-        uri = connection.uri("tasks", taskid, parameters=["group-id="+group])
-        response = connection.get(uri)
+        path = connection.resource_path("tasks", taskid)
+        response = connection.get(path, parameters=["group-id="+group])
         if response.status_code == 200:
             result = Task.unmarshal(json.loads(response.text))
             if 'etag' in response.headers:
@@ -363,8 +361,7 @@ class Task(Model, PropertyLists):
         :return: A list of task IDs.
         """
 
-        uri = connection.uri("tasks")
-        response = connection.get(uri)
+        response = connection.get("/tasks")
 
         if response.status_code == 200:
             response_json = json.loads(response.text)

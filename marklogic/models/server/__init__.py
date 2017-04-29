@@ -1337,10 +1337,10 @@ class Server(Model,PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("servers", self.name, properties=None,
-                             parameters=["group-id="+self.group_name(),
-                                         "view="+view])
-        response = connection.get(uri)
+        path = connection.resource_path("servers", self.name)
+        response = connection.get(path,
+                                  parameters=["group-id="+self.group_name(),
+                                              "view="+view])
         data = json.loads(response.text)
         return data
 
@@ -1367,9 +1367,11 @@ class Server(Model,PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("servers")
         struct = self.marshal()
-        response = connection.post(uri, payload=struct)
+
+        self.logger.debug("Creating server: %s", self.server_name())
+
+        response = connection.post("/servers", payload=struct)
         return self
 
     def read(self, connection=None):
@@ -1400,10 +1402,10 @@ class Server(Model,PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("servers", self.name,
-                             parameters=["group-id="+self.group_name()])
+        path = connection.resource_path("servers", self.name, properties=None)
         struct = self.marshal()
-        response = connection.put(uri, payload=struct, etag=self.etag)
+        response = connection.put(path, payload=struct, etag=self.etag,
+                                  parameters=["group-id="+self.group_name()])
 
         self.name = self._config['server-name']
         if 'etag' in response.headers:
@@ -1420,15 +1422,14 @@ class Server(Model,PropertyLists):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("servers", self.name, properties=None,
-                             parameters=["group-id="+self.group_name()])
-        response = connection.delete(uri, etag=self.etag)
+        path = connection.resource_path("servers", self.name, properties=None)
+        response = connection.delete(path, etag=self.etag,
+                                     parameters=["group-id="+self.group_name()])
         return self
 
     @classmethod
     def _list(cls, connection, kind=None):
-        uri = connection.uri("servers")
-        response = connection.get(uri)
+        response = connection.get("/servers")
 
         results = []
         json_doc = json.loads(response.text)
@@ -1475,8 +1476,8 @@ class Server(Model,PropertyLists):
         else:
             raise validate_custom("Unparseable server name")
 
-        uri = connection.uri("servers", name, parameters=["group-id="+group])
-        response = connection.get(uri)
+        path = connection.resource_path("servers", name)
+        response = connection.get(path, parameters=["group-id="+group])
 
         if response.status_code == 200:
             result = Server.unmarshal(json.loads(response.text))
@@ -1628,7 +1629,7 @@ class HttpServer(Server):
     def __init__(self, name, group="Default", port=None, root=None,
                  content_db_name=None, modules_db_name=None,
                  connection=None, save_connection=True):
-        super(Server, self).__init__()
+        super().__init__()
 
         self.save_connection = save_connection
         if save_connection:

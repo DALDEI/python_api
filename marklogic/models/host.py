@@ -163,9 +163,9 @@ class Host(Model):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("hosts", self.name)
+        path = connection.resource_path("hosts", self.name)
         struct = self.marshal()
-        response = connection.put(uri, payload=struct, etag=self.etag)
+        response = connection.put(path, payload=struct, etag=self.etag)
 
         # In case we renamed it
         self.name = self._config['host-name']
@@ -185,9 +185,9 @@ class Host(Model):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("hosts", self.name, properties=None)
+        path = connection.resource_path("hosts", self.name, properties=None)
         struct = {'operation': 'restart'}
-        response = connection.post(uri, payload=struct)
+        response = connection.post(path, payload=struct)
         return self
 
     def shutdown(self, connection=None):
@@ -201,9 +201,9 @@ class Host(Model):
         if connection is None:
             connection = self.connection
 
-        uri = connection.uri("hosts", self.name, properties=None)
+        path = connection.resource_path("hosts", self.name, properties=None)
         struct = {'operation': 'shutdown'}
-        response = connection.post(uri, payload=struct)
+        response = connection.post(path, payload=struct)
         return None
 
     @classmethod
@@ -215,8 +215,8 @@ class Host(Model):
         :param connection: A connection to a MarkLogic server
         :return: The host information
         """
-        uri = connection.uri("hosts", name)
-        response = connection.get(uri)
+        path = connection.resource_path("hosts", name)
+        response = connection.get(path)
         if response.status_code == 200:
             result = Host.unmarshal(json.loads(response.text))
             if 'etag' in response.headers:
@@ -234,8 +234,7 @@ class Host(Model):
         :return: A list of host names
         """
 
-        uri = connection.uri("hosts")
-        response = connection.get(uri)
+        response = connection.get("/hosts")
 
         if response.status_code == 200:
             response_json = json.loads(response.text)
@@ -280,6 +279,7 @@ class Host(Model):
 
         :return: The config. This is always XML.
         """
+        # FIXME: this doesn't work
         connection = Connection(self.host_name(), None)
         uri = "http://{0}:8001/admin/v1/server-config".format(connection.host)
         response = connection.get(uri, accept="application/xml")
@@ -297,11 +297,9 @@ class Host(Model):
         :param connection: The connection credentials to use
         :param cfgzip: The ZIP payload from post_server_config()
         """
-        uri = "{0}://{1}:8001/admin/v1/cluster-config" \
-              .format(connection.protocol, connection.host)
-
-        response = connection.post(uri, payload=cfgzip,
-                                   content_type="application/zip")
+        path = "/cluster-config"
+        response = connection.admin_post(path, payload=cfgzip,
+                                         content_type="application/zip")
 
         if response.status_code != 202:
             raise UnexpectedManagementAPIResponse(response.text)

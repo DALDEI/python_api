@@ -34,52 +34,51 @@ class TestServer(MLConfig):
 
     def test_lookup(self):
         server = Server.lookup(self.connection, "Manage")
-
         assert server is not None
-        assert "Manage" == server.server_name()
+        assert server.server_name() == "Manage"
 
     def test_load(self):
         server = HttpServer("Manage", "Default")
-        assert "Manage" == server.server_name()
+        assert server.server_name() == "Manage"
         assert server.read(self.connection) is not None
-        assert "http" == server.server_type()
+        assert server.server_type() == "http"
 
     def test_create_http_server(self):
         server = HttpServer("foo-http", "Default", 10101, '/', 'Documents')
-        assert "foo-http" == server.server_name()
+        assert server.server_name() == "foo-http"
         server.create(self.connection)
         assert server is not None
-        assert "http" == server.server_type()
+        assert server.server_type() == "http"
         server.delete(self.connection)
         server = Server.lookup(self.connection, "foo-http")
         assert server is None
 
     def test_create_odbc_server(self):
         server = OdbcServer("foo-odbc", "Default", 10101, '/', 'Documents')
-        assert "foo-odbc" == server.server_name()
+        assert server.server_name() == "foo-odbc"
         server.create(self.connection)
         assert server is not None
-        assert "odbc" == server.server_type()
+        assert server.server_type() == "odbc"
         server.delete(self.connection)
         server = Server.lookup(self.connection, "foo-odbc")
         assert server is None
 
     def test_create_xdbc_server(self):
         server = XdbcServer("foo-xdbc", "Default", 10101, '/', 'Documents')
-        assert "foo-xdbc" == server.server_name()
+        assert server.server_name() == "foo-xdbc"
         server.create(self.connection)
         assert server is not None
-        assert "xdbc" == server.server_type()
+        assert server.server_type() == "xdbc"
         server.delete(self.connection)
         server = Server.lookup(self.connection, "foo-xdbc")
         assert server is None
 
     def test_create_webdav_server(self):
         server = WebDAVServer("foo-webdav", "Default", 10101, '/', 'Documents')
-        assert "foo-webdav" == server.server_name()
+        assert server.server_name() == "foo-webdav"
         server.create(self.connection)
         assert server is not None
-        assert "webdav" == server.server_type()
+        assert server.server_type() == "webdav"
         server.delete(self.connection)
         server = Server.lookup(self.connection, "foo-webdav")
         assert server is None
@@ -88,10 +87,11 @@ class TestServer(MLConfig):
         cluster = LocalCluster(connection=self.connection)
         version = cluster.version()
 
+        # FIXME: WTF?
         if (version.startswith("4") or version.startswith("5")
             or version.startswith("6") or version.startswith("7")
-            or version.startswith("8.0-1") or version.startswith("8.0-2")
-            or version.startswith("8.0-3") or version.startswith("8.0-4")):
+            or version.startswith("8") or version.startswith("9")
+            or version.startswith("10")):
             pass
         else:
             self._test_ssl_certificate_pems()
@@ -152,3 +152,4 @@ Z70Br83gcfxaz2TE4JaY0KNA4gGK7ycH8WUBikQtBmV1UsCGECAhX2xrD2yuCRyv\n\
         server.delete(self.connection)
         server = Server.lookup(self.connection, "foo-http")
         assert server is None
+
