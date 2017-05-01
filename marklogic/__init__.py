@@ -21,6 +21,7 @@ A MarkLogic server
 import logging
 import requests
 import json
+import time
 from marklogic.connection import Connection
 from marklogic.models.cluster import LocalCluster
 from marklogic.models.host import Host
@@ -31,10 +32,11 @@ from marklogic.models.role import Role
 from marklogic.models.group import Group
 from marklogic.models.database import Database
 from marklogic.models.forest import Forest
-from requests.auth import HTTPDigestAuth
+from marklogic.auth import Auth
 from marklogic.models.server import Server, HttpServer, WebDAVServer
 from marklogic.models.server import OdbcServer, XdbcServer
 from marklogic.exceptions import InvalidAPIRequest, UnexpectedManagementAPIResponse
+from marklogic.exceptions import UnsupportedOperation
 
 __version__ = "0.0.16"
 
@@ -420,16 +422,14 @@ class MarkLogic:
         """
         conn = Connection(host, None)
 
-        uri = "{0}://{1}:8001/admin/v1/init".format(conn.protocol, conn.host)
-
         logger = logging.getLogger("marklogic")
         logger.debug("Initializing {0}".format(host))
 
         # This call is a little odd; we special case the 400 error that
         # occurs if the host has alreadya been initialized.
         try:
-            response = conn.post(uri,
-                                 content_type='application/x-www-form-urlencoded')
+            response = conn.admin_post("/init",
+                                       content_type='application/x-www-form-urlencoded')
         except UnexpectedManagementAPIResponse:
             response = conn.response
             if response.status_code == 400:
@@ -463,13 +463,11 @@ class MarkLogic:
             'realm': realm
             }
 
-        uri = "{0}://{1}:8001/admin/v1/instance-admin".format(
-            conn.protocol, conn.host)
-
         logger = logging.getLogger("marklogic")
-        logger.debug("Initializing security for {0}".format(host))
+        logger.debug("Initializing security for %s", host)
 
         # N.B. Can't use conn.post here because we don't need auth yet
+        uri = "http://{0}:8001/admin/v1/instance-admin".format(host)
         response = requests.post(uri, json=payload,
                                  headers={'content-type': 'application/json',
                                           'accept': 'application/json'})
@@ -477,7 +475,22 @@ class MarkLogic:
         if response.status_code != 202:
             raise UnexpectedManagementAPIResponse(response.text)
 
-        # From now on connections require auth...
-        conn = Connection(host, HTTPDigestAuth(admin, password))
         data = json.loads(response.text)
-        conn.wait_for_restart(data["restart"]["last-startup"][0]["value"])
+        timestamp = data["restart"]["last-startup"][0]["value"]
+
+        # From now on connections require auth...but we can't work
+        # out what kind until the server has restarted...
+        # So try several times...
+        done = False
+        count = 24
+        while not done:
+            try:
+                conn = Connection(host, Auth(admin, password))
+                conn.wait_for_restart(timestamp)
+                done = True
+            except UnsupportedOperation:
+                time.sleep(4) # wait then try again, unless we're out of retries
+                count -= 1
+
+            if count <= 0:
+                raise UnexpectedManagementAPIResponse("Restart hung?")

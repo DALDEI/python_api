@@ -42,22 +42,30 @@ Connection related classes and method to connect to MarkLogic.
 class Connection:
     """
     The connection class encapsulates the information to connect to
-    a MarkLogic server.
+    a MarkLogic server. This object handles the Client API (on port 8000),
+    the Management API (on port 8002), and the Admin API (on port 8001).
     """
-    def __init__(self, host, auth,
-                 mgmt_port=8002, mgmt_root="/manage/v2",
-                 client_port=8000, client_root="/v1"):
+    def __init__(self, host, auth):
         self.host = host
         self.auth = auth
 
-        self.mgmt = Endpoint(host, mgmt_port, auth, mgmt_root)
-        self.client = Endpoint(host, client_port, auth, client_root)
+        self.mgmt = Endpoint(host, 8002, auth, "/manage/v2")
+        self.client = Endpoint(host, 8000, auth, "/v1")
         self.admin = Endpoint(host, 8001, auth, "/admin/v1")
         self.response = None
         self.verify = False
 
         self.logger = logging.getLogger("marklogic.connection")
         self.payload_logger = logging.getLogger("marklogic.connection.payloads")
+
+    def get_management_endpoint(self):
+        return self.mgmt
+
+    def get_client_endpoint(self):
+        return self.client
+
+    def get_admin_endpoint(self):
+        return self.admin
 
     def resource_path(self, kind, name, properties="/properties"):
         if properties is None:
@@ -90,7 +98,7 @@ class Connection:
     def admin_get(self, path, accept="application/json", headers=None, parameters=None):
         self.response = self.admin.get(path, accept=accept,
                                        headers=headers, parameters=parameters)
-        return self._client_response()
+        return self._response()
 
     def post(self, path, payload=None, etag=None, headers=None, parameters=None,
              content_type="application/json", accept="application/json"):
@@ -111,7 +119,7 @@ class Connection:
         self.response = self.admin.post(path, payload=payload, etag=etag,
                                         headers=headers, parameters=parameters,
                                         content_type=content_type, accept=accept)
-        return self._client_response()
+        return self._response()
 
     def put(self, path, payload=None, etag=None, headers=None, parameters=None,
              content_type="application/json", accept="application/json"):
@@ -146,7 +154,7 @@ class Connection:
         self.response = self.admin.delete(path, payload=payload, etag=etag,
                                            headers=headers, parameters=parameters,
                                            content_type=content_type, accept=accept)
-        return self._client_response()
+        return self._response()
 
     def _client_response(self):
         response = self.response

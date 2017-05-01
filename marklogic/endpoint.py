@@ -36,66 +36,61 @@ class Endpoint:
     authentication used to communicate with a MarkLogic application
     server.
     """
-    def __init__(self, host, port, auth, root=None):
+    def __init__(self, host, port, auth, root=""):
         self.logger = logging.getLogger("marklogic.connection")
         self.payload_logger = logging.getLogger("marklogic.connection.payloads")
-
-        self.verify = False # Danger, Will Robinson!
-        urllib3.disable_warnings()
-
-        self.logger.debug("START %s %s", host, port)
-
-        # Is this an http or https connection? Assume HEAD on host:port/ will work.
-        success = False
-        protocol = "http"
-        auth_str = None
-        uri = "{0}://{1}:{2}/".format(protocol, host, port)
-        try:
-            # http with digest auth?
-            http_auth = auth.digest_auth()
-            auth_str = "digest"
-            resp = requests.head(uri, auth=http_auth, verify=False)
-            success = resp.status_code < 400
-        except ConnectionError:
-            pass
-
-        if not success:
-            self.logger.debug("HEAD %s failed", uri)
-            protocol = "https"
-            uri = "{0}://{1}:{2}/".format(protocol, host, port)
-            try:
-                # https with digest auth?
-                http_auth = auth.digest_auth()
-                auth_str = "digest"
-                resp = requests.head(uri, auth=http_auth, verify=False)
-                success = resp.status_code < 400
-            except ConnectionError:
-                pass
-
-        if not success:
-            self.logger.debug("HEAD %s failed (w/digest auth)", uri)
-            try:
-                # https with basic auth
-                http_auth = auth.basic_auth()
-                auth_str = "basic"
-                resp = requests.head(uri, auth=http_auth, verify=False)
-                success = resp.status_code < 400
-            except ConnectionError:
-                pass
-
-        if not success:
-            self.logger.debug("HEAD %s failed (w/basic auth)", uri)
-            raise UnsupportedOperation \
-                ("Cannot get authenticated response from endpoint")
 
         self.host = host
         self.port = port
         self.auth = auth
         self.root = root
-        self.protocol = protocol
-        self.http_auth = http_auth
+        self.protocol = "http" # must be default for /admin/v1/init case...
+        self.http_auth = None
+        self.verify = True
 
-        self.logger.debug("Endpoint: %s://%s:%d%s (%s)", protocol, host, port, root, auth_str)
+    def get_host(self):
+        """ Return the current host """
+        return self.host
+
+    def set_host(self, host):
+        """ Change the host. Only accepted before the first connection attempt. """
+        if self.http_auth is not None:
+            raise UnsupportedOperation("Cannot change host after connection")
+        self.host = host
+
+    def get_port(self):
+        """ Return the current port """
+        return self.port
+
+    def set_port(self, port):
+        """ Change the port. Only accepted before the first connection attempt. """
+        if self.http_auth is not None:
+            raise UnsupportedOperation("Cannot change port after connection")
+        self.port = port
+
+    def get_auth(self):
+        """ Return the current auth """
+        return self.auth
+
+    def set_auth(self, auth):
+        """ Change the authentication. Only accepted before the first connection attempt. """
+        if self.http_auth is not None:
+            raise UnsupportedOperation("Cannot change auth after connection")
+        self.auth = auth
+
+    def get_root(self):
+        """ Return the current root """
+        return self.root
+
+    def set_root(self, root):
+        """ Change the root. Only accepted before the first connection attempt. """
+        if self.http_auth is not None:
+            raise UnsupportedOperation("Cannot change root after connection")
+        self.root = root
+
+    def get_protocol(self):
+        """ Return the current protocol """
+        return self.protocol
 
     def uri(self, path, parameters=None):
         """
@@ -116,34 +111,20 @@ class Endpoint:
 
         return uri
 
-    def get_host(self):
-        """ Return the current host """
-        return self.host
-
-    def get_port(self):
-        """ Return the current port """
-        return self.port
-
-    def get_auth(self):
-        """ Return the current auth """
-        return self.auth
-
-    def get_root(self):
-        """ Return the current root """
-        return self.root
-
-    def get_protocol(self):
-        """ Return the current protocol """
-        return self.protocol
-
     def head(self, path):
         """ Return an HTTP HEAD response """
+        if self.http_auth is None:
+            self._find_auth_strategy()
+
         uri = self.uri(path)
         self.logger.debug("HEAD %s...", uri)
         return requests.head(uri, auth=self.http_auth, verify=self.verify)
 
     def get(self, path, accept="application/json", headers=None, parameters=None):
         """ Return an HTTP GET response """
+        if self.http_auth is None:
+            self._find_auth_strategy()
+
         uri = self.uri(path, parameters)
         if headers is None:
             headers = {'accept': accept}
@@ -160,6 +141,9 @@ class Endpoint:
     def post(self, path, payload=None, etag=None, headers=None, parameters=None,
              content_type="application/json", accept="application/json"):
         """ Return an HTTP POST response """
+        if self.http_auth is None:
+            self._find_auth_strategy()
+
         uri = self.uri(path, parameters)
         if headers is None:
             headers = {}
@@ -196,6 +180,9 @@ class Endpoint:
     def put(self, path, payload=None, etag=None, headers=None, parameters=None,
             content_type="application/json", accept="application/json"):
         """ Return an HTTP PUT response """
+        if self.http_auth is None:
+            self._find_auth_strategy()
+
         uri = self.uri(path, parameters)
 
         if headers is None:
@@ -233,6 +220,9 @@ class Endpoint:
     def delete(self, path, payload=None, etag=None, headers=None, parameters=None,
                content_type="application/json", accept="application/json"):
         """ Return an HTTP DELETE response """
+        if self.http_auth is None:
+            self._find_auth_strategy()
+
         uri = self.uri(path, parameters)
 
         if headers is None:
@@ -266,3 +256,65 @@ class Endpoint:
                 return requests.delete(uri, data=payload,
                                        auth=self.http_auth, headers=headers,
                                        verify=self.verify)
+
+    def _find_auth_strategy(self):
+        """
+        Figure out how to talk to the endpoint. First, attempt http:
+        with digest auth, then https: with digest auth, then https: with
+        basic auth. Eventually, support for certificates should be
+        added.
+        """
+        self.verify = False # Danger, Will Robinson!
+        urllib3.disable_warnings()
+
+        if self.auth is None:
+            return
+
+        # Is this an http or https connection? Assume HEAD on host:port/ will work.
+        success = False
+        protocol = "http"
+        auth_str = None
+        uri = "{0}://{1}:{2}/".format(protocol, self.host, self.port)
+        try:
+            # http with digest auth?
+            http_auth = self.auth.digest_auth()
+            auth_str = "digest"
+            resp = requests.head(uri, auth=http_auth, verify=False)
+            success = resp.status_code < 400
+        except ConnectionError:
+            pass
+
+        if not success:
+            self.logger.debug("HEAD %s failed", uri)
+            protocol = "https"
+            uri = "{0}://{1}:{2}/".format(protocol, self.host, self.port)
+            try:
+                # https with digest auth?
+                http_auth = self.auth.digest_auth()
+                auth_str = "digest"
+                resp = requests.head(uri, auth=http_auth, verify=False)
+                success = resp.status_code < 400
+            except ConnectionError:
+                pass
+
+        if not success:
+            self.logger.debug("HEAD %s failed (w/digest auth)", uri)
+            try:
+                # https with basic auth
+                http_auth = self.auth.basic_auth()
+                auth_str = "basic"
+                resp = requests.head(uri, auth=http_auth, verify=False)
+                success = resp.status_code < 400
+            except ConnectionError:
+                pass
+
+        if not success:
+            self.logger.debug("HEAD %s failed (w/basic auth)", uri)
+            raise UnsupportedOperation \
+                ("Cannot get authenticated response from endpoint")
+
+        self.protocol = protocol
+        self.http_auth = http_auth
+
+        self.logger.debug("Endpoint: %s://%s:%d%s (%s)",
+                          protocol, self.host, self.port, self.root, auth_str)

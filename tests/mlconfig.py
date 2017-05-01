@@ -11,11 +11,13 @@ class MLConfig(TestCase):
                    "username": "admin", \
                    "password": "admin", \
                    "protocol": "http", \
-                   "port": 8000, \
                    "management-port": 8002, \
-                   "root": "manage", \
-                   "version": "v2", \
-                   "client-version": "v1" }
+                   "management-root": "/manage/v2", \
+                   "client-port": 8000, \
+                   "client-root": "/v1", \
+                   "admin-port": 8001, \
+                   "admin-root": "/admin/v1" }
+
         try:
             data_file = open("mlconfig.json").read()
             data = json.loads(data_file)
@@ -25,6 +27,14 @@ class MLConfig(TestCase):
             pass
 
         self.auth = Auth(config["username"], config["password"])
-        self.connection = Connection(config["hostname"], self.auth, \
-                                     client_port=config["port"], \
-                                     mgmt_port=config["management-port"])
+
+        conn = Connection(config["hostname"], self.auth)
+
+        conn.get_management_endpoint().set_port(config["management-port"])
+        conn.get_management_endpoint().set_root(config["management-root"])
+        conn.get_client_endpoint().set_port(config["client-port"])
+        conn.get_client_endpoint().set_root(config["client-root"])
+        conn.get_admin_endpoint().set_port(config["admin-port"])
+        conn.get_admin_endpoint().set_root(config["admin-root"])
+
+        self.connection = conn
