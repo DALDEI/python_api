@@ -45,6 +45,18 @@ class Manager:
             for prop in args['properties']:
                 try:
                     name, value = re.split("=", prop)
+                    #
+                    # DAL: if value is parsable as a JSON atom or object then use it
+                    # This allows for true/false
+                    if isinstance(value, str): 
+                      try:
+                        value = json.loads(value)
+
+                      except ValueError:
+                        # Ignore 
+                        #  print ("Exception converting value - ingored")
+                        pass
+
                 except ValueError:
                     print ("Additional properties must be name=value pairs: {0}"
                            .format(prop))
